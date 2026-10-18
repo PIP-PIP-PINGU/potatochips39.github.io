@@ -10,6 +10,21 @@
     <h1>Pip-pip-pingu Location Map</h1>
     <div class="map-container">
         <canvas id="mapCanvas" width="350" height="350"></canvas>
+        <div class="zoom-controls" style="display: flex; gap: 15px; margin: 10px 0 5px 0; justify-content: center;">
+    <button class="zoom-btn" id="btnZoomOut" style="background: #5cda77; color: #1e1e1e; border: none; padding: 8px 18px; font-weight: bold; border-radius: 4px; cursor: pointer;">🔍 縮小 (-)</button>
+    <button class="zoom-btn" id="btnZoomIn" style="background: #5cda77; color: #1e1e1e; border: none; padding: 8px 18px; font-weight: bold; border-radius: 4px; cursor: pointer;">🔍 拡大 (+)</button>
+</div>
+
+<div class="slider-container" style="width: 100%; display: flex; flex-direction: column; gap: 8px; margin-top: 5px; background: #252525; padding: 10px; border-radius: 6px; box-sizing: border-box;">
+    <div class="slider-row" style="display: flex; align-items: center; gap: 10px; font-size: 11px; color: #aaa; font-family: monospace;">
+        <span style="min-width: 45px;">左右(X)</span>
+        <input type="range" id="sliderX" class="map-slider" min="-3000" max="3000" value="0" style="flex-grow: 1; accent-color: #5cda77; cursor: pointer;">
+    </div>
+    <div class="slider-row" style="display: flex; align-items: center; gap: 10px; font-size: 11px; color: #aaa; font-family: monospace;">
+        <span style="min-width: 45px;">上下(Z)</span>
+        <input type="range" id="sliderZ" class="map-slider" min="-3000" max="3000" value="0" style="flex-grow: 1; accent-color: #5cda77; cursor: pointer;">
+    </div>
+</div>
         <div class="info-popup" id="infoPopup"></div>
     </div>
     <div class="controls">
@@ -62,41 +77,65 @@ function parseCoordinates(str) {
     return { x: null, z: null };
 }
 
-function drawMap() {
-    const w = canvas.width, h = canvas.height, cx = w / 2 + offsetX, cy = h / 2 + offsetY;
-    ctx.clearRect(0, 0, w, h);
-    ctx.strokeStyle = '#333'; ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(w, cy); ctx.moveTo(cx, 0); ctx.lineTo(cx, h); ctx.stroke();
-    ctx.strokeStyle = '#ff4444'; ctx.beginPath(); ctx.moveTo(cx-5, cy-5); ctx.lineTo(cx+5, cy+5); ctx.moveTo(cx+5, cy-5); ctx.lineTo(cx-5, cy+5); ctx.stroke();
+        function drawMap() {
+            const w = canvas.width, h = canvas.height, cx = w / 2 + offsetX, cy = h / 2 + offsetY;
+            ctx.clearRect(0, 0, w, h);
+            ctx.strokeStyle = '#333'; ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(w, cy); ctx.moveTo(cx, 0); ctx.lineTo(cx, h); ctx.stroke();
+            ctx.strokeStyle = '#ff4444'; ctx.beginPath(); ctx.moveTo(cx-5, cy-5); ctx.lineTo(cx+5, cy+5); ctx.moveTo(cx+5, cy-5); ctx.lineTo(cx-5, cy+5); ctx.stroke();
 
-    plottedPoints = [];
-    filteredData.forEach(item => {
-        const pos = parseCoordinates(item.coords); if (pos.x === null || pos.z === null) return;
-        
-        const px = cx + ((pos.x / 5000) * (w / 2)) * scale, py = cy + ((pos.z / 5000) * (h / 2)) * scale;
-        const sel = (selectedIndex === item.id); plottedPoints.push({ id: item.id, x: px, y: py });
-        if (px < 0 || px > w || py < 0 || py > h) return;
+            plottedPoints = [];
+            let selectedItemData = null; // 🔍 選択されたデータを一時的にキープする変数
 
-        if (item.category === '拠点' || item.category.includes('拠点')) ctx.fillStyle = '#ea4335'; 
-        else if (item.category === '構造物') ctx.fillStyle = '#1a73e8'; 
-        else if (item.category === 'バイオーム') ctx.fillStyle = '#34a853'; 
-        else ctx.fillStyle = '#888888'; 
+            // 1. まずは通常のドット（点）と非選択時の名前をすべて描く
+            filteredData.forEach(item => {
+                const pos = parseCoordinates(item.coords); if (pos.x === null || pos.z === null) return;
+                const px = cx + ((pos.x / 5000) * (w / 2)) * scale, py = cy + ((pos.z / 5000) * (h / 2)) * scale;
+                const sel = (selectedIndex === item.id); plottedPoints.push({ id: item.id, x: px, y: py });
+                if (px < 0 || px > w || py < 0 || py > h) return;
 
-        ctx.beginPath(); ctx.arc(px, py, sel ? 9 : 5, 0, Math.PI * 2); ctx.fill();
-        
-        if (sel) { 
-            ctx.strokeStyle = '#ffbe0b'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(px, py, 12, 0, Math.PI * 2); ctx.stroke(); 
-            ctx.fillStyle = '#ffbe0b'; ctx.font = 'bold 11px sans-serif'; ctx.fillText(item.name, px + 14, py + 3);
-        } else if (scale > 2.0) {
+                // 選択されているデータは後で一番手前に描くので、ここではスキップして位置だけ記録する
+                if (sel) {
+                    selectedItemData = { item: item, x: px, y: py };
+                    return;
+                }
 
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.6)'; ctx.font = '9px sans-serif'; ctx.fillText(item.name, px + 8, py + 3);
+                if (item.category.includes('拠点')) ctx.fillStyle = '#ea4335';
+                else if (item.category.includes('構造物')) ctx.fillStyle = '#1a73e8';
+                else if (item.category.includes('バイオーム')) ctx.fillStyle = '#34a853';
+                else ctx.fillStyle = '#888888';
+
+                ctx.beginPath(); ctx.arc(px, py, 5, 0, Math.PI * 2); ctx.fill();
+                
+                if (scale > 2.0) {
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)'; ctx.font = '9px sans-serif'; ctx.fillText(item.name, px + 8, py + 3);
+                }
+            });
+
+            // 2. 【ここが超重要】最後に、選択された点と名前だけを「一番上」に重ねて描く
+            if (selectedItemData) {
+                const item = selectedItemData.item;
+                const px = selectedItemData.x;
+                const py = selectedItemData.y;
+
+                if (item.category.includes('拠点')) ctx.fillStyle = '#ea4335';
+                else if (item.category.includes('構造物')) ctx.fillStyle = '#1a73e8';
+                else if (item.category.includes('バイオーム')) ctx.fillStyle = '#34a853';
+                else ctx.fillStyle = '#888888';
+
+                // 黄色いターゲットリングを描く
+                ctx.strokeStyle = '#ffbe0b'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(px, py, 12, 0, Math.PI * 2); ctx.stroke(); 
+                // 大きな点を描く
+                ctx.beginPath(); ctx.arc(px, py, 9, 0, Math.PI * 2); ctx.fill();
+                // 黄色い太文字の名前を一番手前に描く
+                ctx.fillStyle = '#ffbe0b'; ctx.font = 'bold 11px sans-serif'; ctx.fillText(item.name, px + 14, py + 3);
+            }
+
+            ctx.fillStyle = '#888'; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center';
+            ctx.fillText('N (-Z)', w / 2, 15); ctx.fillText('S (+Z)', w / 2, h - 8);
+            ctx.textAlign = 'left'; ctx.fillText('W (-X)', 8, h / 2 - 4);
+            ctx.textAlign = 'right'; ctx.fillText('E (+X)', w - 8, h / 2 - 4); ctx.textAlign = 'left';
         }
-    });
 
-    ctx.fillStyle = '#888'; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center';
-    ctx.fillText('N (-Z)', w / 2, 15); ctx.fillText('S (+Z)', w / 2, h - 8);
-    ctx.textAlign = 'left'; ctx.fillText('W (-X)', 8, h / 2 - 4);
-    ctx.textAlign = 'right'; ctx.fillText('E (+X)', w - 8, h / 2 - 4); ctx.textAlign = 'left';
-}
 
 
 function updatePopup(item) {
@@ -198,6 +237,27 @@ function filterAndRender() {
     document.getElementById('categoryFilter').addEventListener('change', () => { selectedIndex = null; updatePopup(null); filterAndRender(); });
 
 loadSpreadsheetData();
+
+    // 💡 【ここからscript.jsの一番下へ追加】
+// ボタンで拡大・縮小させる処理
+document.getElementById('btnZoomIn').addEventListener('click', () => { scale = Math.min(scale * 1.3, 50); drawMap(); });
+document.getElementById('btnZoomOut').addEventListener('click', () => { scale = Math.max(scale / 1.3, 0.05); drawMap(); });
+
+// スライドバーでカメラを上下左右に移動させる処理
+const sliderX = document.getElementById('sliderX');
+const sliderZ = document.getElementById('sliderZ');
+
+function updatePositionFromSliders() {
+    // スライダーのツマミの位置に応じて、マップの表示ズレ（offsetX, offsetY）を正確に計算します
+    offsetX = -parseInt(sliderX.value, 10) * (canvas.width / 10000) * scale;
+    offsetY = -parseInt(sliderZ.value, 10) * (canvas.height / 10000) * scale;
+    drawMap();
+}
+
+sliderX.addEventListener('input', updatePositionFromSliders);
+sliderZ.addEventListener('input', updatePositionFromSliders);
+// 💡 【ここまで追加】
+
 </script>
 </body>
 </html>
