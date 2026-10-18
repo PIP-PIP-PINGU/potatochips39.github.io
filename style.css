@@ -17,3 +17,76 @@ input { flex-grow: 1; }
 .name { font-weight: bold; flex-grow: 1; }
 .coords { font-family: monospace; color: #ffbe0b; background: #111; padding: 2px 5px; border-radius: 4px; margin-right: 10px; }
 .memo { color: #888; font-size: 12px; }
+/* ======= 🗺️ マップ枠内のコントローラー設定 ======= */
+
+/* マップ枠を基準位置にする設定 */
+.map-container {
+    position: relative;
+    padding: 10px;
+}
+
+/* ボタンとバーの塊をマップの右下に浮かせる */
+.map-inner-controls {
+    position: absolute;
+    right: 20px;
+    bottom: 45px; /* ポップアップに被らないように調整 */
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none; /* マップのクリックの邪魔をしない */
+}
+
+/* スライドバーとボタンの中身だけクリックできるようにする */
+.slider-box, .zoom-box {
+    pointer-events: auto;
+    background: rgba(37, 37, 37, 0.85); /* 背景を少し透明な黒にしてマップを見やすく */
+    padding: 6px;
+    border-radius: 6px;
+    border: 1px solid #444;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.slider-box {
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.slider-box label {
+    font-size: 10px;
+    font-family: monospace;
+    color: #aaa;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    width: 100px;
+}
+
+.slider-box input[type="range"] {
+    flex-grow: 1;
+    width: 100%;
+    accent-color: #5cda77;
+    margin: 0;
+    cursor: pointer;
+}
+
+/* ＋ － ボタンの見た目をコンパクトにする */
+.zoom-box button {
+    background: #5cda77;
+    color: #1e1e1e;
+    border: none;
+    width: 28px;
+    height: 28px;
+    font-weight: bold;
+    font-size: 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.zoom-box button:active {
+    background: #49b55f;
+}
