@@ -134,19 +134,68 @@ function filterAndRender() {
     renderList(); drawMap();
 }
 
-canvas.addEventListener('mousedown', e => { isDragging = true; startX = e.offsetX - offsetX; startY = e.offsetY - offsetY; });
-canvas.addEventListener('mousemove', e => { if (!isDragging) return; offsetX = e.offsetX - startX; offsetY = e.offsetY - startY; drawMap(); });
-window.addEventListener('mouseup', () => isDragging = false);
+    // 🖱️ PC用の操作（マウスドラッグ）
+    canvas.addEventListener('mousedown', e => { isDragging = true; startX = e.offsetX - offsetX; startY = e.offsetY - offsetY; });
+    canvas.addEventListener('mousemove', e => { if (!isDragging) return; offsetX = e.offsetX - startX; offsetY = e.offsetY - startY; drawMap(); });
+    window.addEventListener('mouseup', () => isDragging = false);
 
-canvas.addEventListener('click', e => {
-    const pt = plottedPoints.find(p => Math.sqrt((e.offsetX - p.x)**2 + (e.offsetY - p.y)**2) < 12);
-    selectedIndex = pt ? (selectedIndex === pt.id ? null : pt.id) : null;
-    updatePopup(selectedIndex ? listData.find(i => i.id === selectedIndex) : null); renderList(); drawMap();
-});
+    // 📱 スマホ用の操作（指でのドラッグ＆2本指ズーム）
+    let initialPinchDistance = null;
 
-canvas.addEventListener('wheel', e => { e.preventDefault(); scale = Math.max(0.01, Math.min(e.deltaY < 0 ? scale * 1.1 : scale / 1.1, 50)); drawMap(); }, { passive: false });
-document.getElementById('searchInput').addEventListener('input', () => { selectedIndex = null; updatePopup(null); filterAndRender(); });
-document.getElementById('categoryFilter').addEventListener('change', () => { selectedIndex = null; updatePopup(null); filterAndRender(); });
+    canvas.addEventListener('touchstart', e => {
+        const rect = canvas.getBoundingClientRect();
+        if (e.touches.length === 1) {
+            // 指1本：移動の開始
+            isDragging = true;
+            startX = e.touches[0].clientX - rect.left - offsetX;
+            startY = e.touches[0].clientY - rect.top - offsetY;
+        } else if (e.touches.length === 2) {
+            // 指2本：ズームの開始
+            isDragging = false;
+            initialPinchDistance = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+        }
+    }, { passive: true });
+
+    canvas.addEventListener('touchmove', e => {
+        const rect = canvas.getBoundingClientRect();
+        if (isDragging && e.touches.length === 1) {
+            // 指1本：マップを動かす
+            offsetX = e.touches[0].clientX - rect.left - startX;
+            offsetY = e.touches[0].clientY - rect.top - startY;
+            drawMap();
+        } else if (e.touches.length === 2 && initialPinchDistance !== null) {
+            // 指2本：ピンチで拡大・縮小
+            const currentDistance = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+            const pinchScale = currentDistance / initialPinchDistance;
+            
+            // 指を動かした割合に応じてズーム倍率を変化させる
+            if (pinchScale > 1) { scale *= 1.05; } else { scale /= 1.05; }
+            scale = Math.max(0.01, Math.min(scale, 50));
+            initialPinchDistance = currentDistance;
+            drawMap();
+        }
+    }, { passive: true });
+
+    canvas.addEventListener('touchend', () => { isDragging = false; initialPinchDistance = null; });
+
+    // 🎯 クリック・タップ判定（PC・スマホ両対応）
+    canvas.addEventListener('click', e => {
+        const pt = plottedPoints.find(p => Math.sqrt((e.offsetX - p.x)**2 + (e.offsetY - p.y)**2) < 15); // タップしやすいように判定を少し広げました
+        if (pt !== undefined) { selectedIndex = (selectedIndex === pt.id) ? null : pt.id; } else { selectedIndex = null; }
+        updatePopup(selectedIndex !== null ? listData.find(i => i.id === selectedIndex) : null); renderList(); drawMap();
+    });
+
+    // 🔍 PC用のスクロールホイール拡大・縮小
+    canvas.addEventListener('wheel', e => { e.preventDefault(); scale = Math.max(0.01, Math.min(e.deltaY < 0 ? scale * 1.1 : scale / 1.1, 50)); drawMap(); }, { passive: false });
+    
+    document.getElementById('searchInput').addEventListener('input', () => { selectedIndex = null; updatePopup(null); filterAndRender(); });
+    document.getElementById('categoryFilter').addEventListener('change', () => { selectedIndex = null; updatePopup(null); filterAndRender(); });
 
 loadSpreadsheetData();
 </script>
