@@ -134,21 +134,59 @@ function filterAndRender() {
     renderList(); drawMap();
 }
 
-canvas.addEventListener('mousedown', e => { isDragging = true; startX = e.offsetX - offsetX; startY = e.offsetY - offsetY; });
-canvas.addEventListener('mousemove', e => { if (!isDragging) return; offsetX = e.offsetX - startX; offsetY = e.offsetY - startY; drawMap(); });
-window.addEventListener('mouseup', () => isDragging = false);
+    // 🖱️ PC用の操作（マウスドラッグ）
+    canvas.addEventListener('mousedown', e => { isDragging = true; startX = e.offsetX - offsetX; startY = e.offsetY - offsetY; });
+    canvas.addEventListener('mousemove', e => { if (!isDragging) return; offsetX = e.offsetX - startX; offsetY = e.offsetY - startY; drawMap(); });
+    window.addEventListener('mouseup', () => isDragging = false);
 
-canvas.addEventListener('click', e => {
-    const pt = plottedPoints.find(p => Math.sqrt((e.offsetX - p.x)**2 + (e.offsetY - p.y)**2) < 12);
-    selectedIndex = pt ? (selectedIndex === pt.id ? null : pt.id) : null;
-    updatePopup(selectedIndex ? listData.find(i => i.id === selectedIndex) : null); renderList(); drawMap();
-});
+    // 📱 【ここを修正】スマホ用：指でマップを動かす操作（バーは使いません）
+    canvas.addEventListener('touchstart', e => {
+        if (e.touches.length === 1) {
+            isDragging = true;
+            const rect = canvas.getBoundingClientRect();
+            startX = e.touches.clientX - rect.left - offsetX;
+            startY = e.touches.clientY - rect.top - offsetY;
+        }
+    }, { passive: true });
 
-canvas.addEventListener('wheel', e => { e.preventDefault(); scale = Math.max(0.01, Math.min(e.deltaY < 0 ? scale * 1.1 : scale / 1.1, 50)); drawMap(); }, { passive: false });
-document.getElementById('searchInput').addEventListener('input', () => { selectedIndex = null; updatePopup(null); filterAndRender(); });
-document.getElementById('categoryFilter').addEventListener('change', () => { selectedIndex = null; updatePopup(null); filterAndRender(); });
+    canvas.addEventListener('touchmove', e => {
+        if (isDragging && e.touches.length === 1) {
+            const rect = canvas.getBoundingClientRect();
+            offsetX = e.touches.clientX - rect.left - startX;
+            offsetY = e.touches.clientY - rect.top - startY;
+            drawMap();
+        }
+    }, { passive: true });
 
-loadSpreadsheetData();
+    canvas.addEventListener('touchend', () => { isDragging = false; });
+
+    // 🎯 点のクリック判定（PC・スマホ共通）
+    canvas.addEventListener('click', e => {
+        const pt = plottedPoints.find(p => Math.sqrt((e.offsetX - p.x)**2 + (e.offsetY - p.y)**2) < 15);
+        if (pt !== undefined) { selectedIndex = (selectedIndex === pt.id) ? null : pt.id; } else { selectedIndex = null; }
+        updatePopup(selectedIndex !== null ? listData.find(i => i.id === selectedIndex) : null); renderList(); drawMap();
+    });
+
+    // 🔍 PC用のスクロールホイールズーム
+    canvas.addEventListener('wheel', e => { e.preventDefault(); scale = Math.max(0.01, Math.min(e.deltaY < 0 ? scale * 1.1 : scale / 1.1, 50)); drawMap(); }, { passive: false });
+
+    // 🔘 マップ内の「＋」「－」ボタンでズームさせる処理
+    document.getElementById('btnZoomIn').addEventListener('click', () => { scale = Math.min(scale * 1.3, 50); drawMap(); });
+    document.getElementById('btnZoomOut').addEventListener('click', () => { scale = Math.max(scale / 1.3, 0.05); drawMap(); });
+
+    // 🚫 【重要】スマホでボタンを連続でパパパッと押した時に、ページ全体が拡大するのを絶対禁止にする
+    document.getElementById('btnZoomIn').addEventListener('touchend', (e) => { e.preventDefault(); });
+    document.getElementById('btnZoomOut').addEventListener('touchend', (e) => { e.preventDefault(); });
+
+    // 🚫 【重要】マップを指で動かしたり横にずらしたりした時に、スマホのページ自体が一緒に動くのを完全にロックする
+    canvas.addEventListener('touchstart', (e) => { if (e.touches.length === 1) e.preventDefault(); }, { passive: false });
+    canvas.addEventListener('touchmove', (e) => { e.preventDefault(); }, { passive: false });
+
+    document.getElementById('searchInput').addEventListener('input', () => { selectedIndex = null; updatePopup(null); filterAndRender(); });
+    document.getElementById('categoryFilter').addEventListener('change', () => { selectedIndex = null; updatePopup(null); filterAndRender(); });
+
+    loadSpreadsheetData();
+
 </script>
 </body>
 </html>
