@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+  　<script src="script.js"></script>
+    <title>Pip-pip-pingu</title>
+</head>
+<body>
+    <h1>Pip-pip-pingu Location Map</h1>
+    <div class="map-container">
+        <canvas id="mapCanvas" width="350" height="350"></canvas>
+        <div class="info-popup" id="infoPopup"></div>
+    </div>
+    <div class="controls">
+        <input type="text" id="searchInput" placeholder="検索...">
+        <select id="categoryFilter">
+    <option value="all">すべて</option>
+    <option value="構造物">構造物</option>
+    <option value="バイオーム">バイオーム</option>
+    <option value="拠点">拠点</option>
+    <option value="その他">その他</option>
+</select>
+
+    </div>
+    <ul class="location-list" id="listContainer"></ul>
+    <script src="script.js"></script>
+</body>
+</html>
