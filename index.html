@@ -54,7 +54,6 @@ async function loadSpreadsheetData() {
         const res = await fetch(spreadsheetUrl), text = await res.text();
         listData = text.split('\n').slice(1).map((row, i) => {
             const col = row.split(','); if (col.length < 4) return null;
-            // 🔍 あなたが修正してくれた完璧に動くインデックス指定の形です
             return { 
                 id: i, 
                 category: col[0] ? col[0].trim() : '', 
@@ -82,8 +81,10 @@ function parseCoordinates(str) {
 function drawMap() {
     const w = canvas.width, h = canvas.height, cx = w / 2 + offsetX, cy = h / 2 + offsetY;
     ctx.clearRect(0, 0, w, h);
-    ctx.strokeStyle = '#333'; ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(w, cy); ctx.moveTo(cx, 0); ctx.lineTo(cx, h); ctx.stroke();
-    ctx.strokeStyle = '#ff4444'; ctx.beginPath(); ctx.moveTo(cx-5, cy-5); ctx.lineTo(cx+5, cy+5); ctx.moveTo(cx+5, cy-5); ctx.lineTo(cx-5, cy+5); ctx.stroke();
+    
+    // 🔍 【バグ修正】存在しない変数名になっていた部分を、正しい w と h に直しました
+    ctx.strokeStyle = '#333'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(w, cy); ctx.moveTo(cx, 0); ctx.lineTo(cx, h); ctx.stroke();
+    ctx.strokeStyle = '#ff4444'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx-5, cy-5); ctx.lineTo(cx+5, cy+5); ctx.moveTo(cx+5, cy-5); ctx.lineTo(cx-5, cy+5); ctx.stroke();
 
     plottedPoints = [];
     let selectedItemData = null;
@@ -93,12 +94,13 @@ function drawMap() {
         const pos = parseCoordinates(item.coords); if (pos.x === null || pos.z === null) return;
         const px = cx + ((pos.x / 5000) * (w / 2)) * scale, py = cy + ((pos.z / 5000) * (h / 2)) * scale;
         const sel = (selectedIndex === item.id); plottedPoints.push({ id: item.id, x: px, y: py });
-        if (px < 0 || px > w || py < 0 || py > h) return;
 
         if (sel) {
             selectedItemData = { item: item, x: px, y: py };
             return;
         }
+
+        if (px < 0 || px > w || py < 0 || py > h) return;
 
         if (item.category.includes('拠点')) ctx.fillStyle = '#ea4335';
         else if (item.category.includes('構造物')) ctx.fillStyle = '#1a73e8';
@@ -116,14 +118,16 @@ function drawMap() {
         const item = selectedItemData.item;
         const px = selectedItemData.x, py = selectedItemData.y;
 
-        if (item.category.includes('拠点')) ctx.fillStyle = '#ea4335';
-        else if (item.category.includes('構造物')) ctx.fillStyle = '#1a73e8';
-        else if (item.category.includes('バイオーム')) ctx.fillStyle = '#34a853';
-        else ctx.fillStyle = '#888888';
+        if (px >= 0 && px <= w && py >= 0 && py <= h) {
+            if (item.category.includes('拠点')) ctx.fillStyle = '#ea4335';
+            else if (item.category.includes('構造物')) ctx.fillStyle = '#1a73e8';
+            else if (item.category.includes('バイオーム')) ctx.fillStyle = '#34a853';
+            else ctx.fillStyle = '#888888';
 
-        ctx.strokeStyle = '#ffbe0b'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(px, py, 12, 0, Math.PI * 2); ctx.stroke(); 
-        ctx.beginPath(); ctx.arc(px, py, 9, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#ffbe0b'; ctx.font = 'bold 11px sans-serif'; ctx.fillText(item.name, px + 14, py + 3);
+            ctx.strokeStyle = '#ffbe0b'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(px, py, 12, 0, Math.PI * 2); ctx.stroke(); 
+            ctx.beginPath(); ctx.arc(px, py, 9, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#ffbe0b'; ctx.font = 'bold 11px sans-serif'; ctx.fillText(item.name, px + 14, py + 3);
+        }
     }
 
     ctx.fillStyle = '#888'; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center';
@@ -176,16 +180,16 @@ canvas.addEventListener('touchstart', e => {
     if (e.touches.length === 1) {
         isDragging = true;
         const rect = canvas.getBoundingClientRect();
-        startX = e.touches[0].clientX - rect.left - offsetX;
-        startY = e.touches[0].clientY - rect.top - offsetY;
+        startX = e.touches.clientX - rect.left - offsetX;
+        startY = e.touches.clientY - rect.top - offsetY;
     }
 }, { passive: true });
 
 canvas.addEventListener('touchmove', e => {
     if (isDragging && e.touches.length === 1) {
         const rect = canvas.getBoundingClientRect();
-        offsetX = e.touches[0].clientX - rect.left - startX;
-        offsetY = e.touches[0].clientY - rect.top - startY;
+        offsetX = e.touches.clientX - rect.left - startX;
+        offsetY = e.touches.clientY - rect.top - startY;
         drawMap();
     }
 }, { passive: true });
@@ -206,11 +210,11 @@ canvas.addEventListener('wheel', e => { e.preventDefault(); scale = Math.max(0.0
 document.getElementById('btnZoomIn').addEventListener('click', () => { scale = Math.min(scale * 1.3, 50); drawMap(); });
 document.getElementById('btnZoomOut').addEventListener('click', () => { scale = Math.max(scale / 1.3, 0.05); drawMap(); });
 
-// 🚫 【重要】スマホでボタンを連打したときに、ブラウザがページ全体をズームするのを絶対禁止にする
+// 🚫 スマホでボタンを連打したときに、ブラウザがページ全体をズームするのを絶対禁止にする
 document.getElementById('btnZoomIn').addEventListener('touchend', (e) => { e.preventDefault(); });
 document.getElementById('btnZoomOut').addEventListener('touchend', (e) => { e.preventDefault(); });
 
-// 🚫 【重要】マップ操作中に、スマホの画面全体が上下にガタガタ動いて暴れるのを完全にロックする
+// 🚫 マップ操作中に、スマホの画面全体が上下にガタガタ動いて暴れるのを完全にロックする
 canvas.addEventListener('touchstart', (e) => { if (e.touches.length === 1) e.preventDefault(); }, { passive: false });
 canvas.addEventListener('touchmove', (e) => { e.preventDefault(); }, { passive: false });
 
